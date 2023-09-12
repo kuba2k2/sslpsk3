@@ -15,8 +15,10 @@
 import os
 import unittest
 
+
 def tests():
     return unittest.TestLoader().discover(os.path.dirname(__file__))
+
 
 def run():
     unittest.TextTestRunner(verbosity=1).run(tests())

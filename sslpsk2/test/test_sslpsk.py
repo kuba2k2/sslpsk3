@@ -12,22 +12,22 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License
 
-import os
 import socket
 import ssl
-import sslpsk2
-import sys
 import threading
 import unittest
 
-HOST='localhost'
-PORT=6000
-TEST_DATA=b'abcdefghi'
+import sslpsk2
+
+HOST = "localhost"
+PORT = 6000
+TEST_DATA = b"abcdefghi"
+
 
 class sslpsk2Test(unittest.TestCase):
     # ---------- setup/tear down functions
     def setUp(self):
-        self.psk = b'c033f52671c61c8128f7f8a40be88038bcf2b07a6eb3095c36e3759f0cf40837'
+        self.psk = b"c033f52671c61c8128f7f8a40be88038bcf2b07a6eb3095c36e3759f0cf40837"
         self.addr = (HOST, PORT)
         self.client_socket = socket.socket()
         self.server_socket = None
@@ -36,11 +36,13 @@ class sslpsk2Test(unittest.TestCase):
         self.server_psk_sock = None
 
         self.startServer()
-    
+
     def tearDown(self):
-        for sock in [self.client_psk_sock or self.client_socket,
-                     self.server_psk_sock or self.server_socket,
-                     self.accept_socket]:
+        for sock in [
+            self.client_psk_sock or self.client_socket,
+            self.server_psk_sock or self.server_socket,
+            self.accept_socket,
+        ]:
             try:
                 sock.shutdown(socket.SHUT_RDWR)
             except socket.error:
@@ -61,32 +63,44 @@ class sslpsk2Test(unittest.TestCase):
 
         def accept():
             self.server_socket, _ = self.accept_socket.accept()
-        
+
             # wrap socket with TLS-PSK
-            self.server_psk_sock = sslpsk2.wrap_socket(self.server_socket, psk=self.psk, ciphers='PSK-AES256-CBC-SHA',
-                                                      ssl_version=ssl.PROTOCOL_TLSv1, server_side=True)
-        
+            self.server_psk_sock = sslpsk2.wrap_socket(
+                self.server_socket,
+                psk=self.psk,
+                ciphers="PSK-AES256-CBC-SHA",
+                ssl_version=ssl.PROTOCOL_TLSv1,
+                server_side=True,
+            )
+
             # accept data from client
             data = self.server_psk_sock.recv(10)
             self.server_psk_sock.sendall(data.upper())
 
-        threading.Thread(target = accept).start()
+        threading.Thread(target=accept).start()
 
     def testClient(self):
         # initialize
         self.client_socket.connect(self.addr)
-        
+
         # wrap socket with TLS-PSK
-        self.client_psk_sock = sslpsk2.wrap_socket(self.client_socket, psk=self.psk, ciphers='PSK-AES256-CBC-SHA',
-                                                  ssl_version=ssl.PROTOCOL_TLSv1, server_side=False)
-        
+        self.client_psk_sock = sslpsk2.wrap_socket(
+            self.client_socket,
+            psk=self.psk,
+            ciphers="PSK-AES256-CBC-SHA",
+            ssl_version=ssl.PROTOCOL_TLSv1,
+            server_side=False,
+        )
+
         self.client_psk_sock.sendall(TEST_DATA)
         data = self.client_psk_sock.recv(10)
-        print('data: %s' % data)
-        self.assertTrue(data == TEST_DATA.upper(), 'Test Failed')
+        print("data: %s" % data)
+        self.assertTrue(data == TEST_DATA.upper(), "Test Failed")
+
 
 def main():
     unittest.main(buffer=False)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
