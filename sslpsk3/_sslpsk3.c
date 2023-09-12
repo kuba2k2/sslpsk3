@@ -71,7 +71,7 @@ long ssl_id(SSL* ssl)
 /*
  * Called from Python to set python_psk_client_callback;
  */
-PyObject* sslpsk3_set_python_psk_client_callback(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_set_python_psk_client_callback(PyObject* self, PyObject* args)
 {
     PyObject* cb;
     if (!PyArg_ParseTuple(args, "O", &cb)) {
@@ -87,7 +87,7 @@ PyObject* sslpsk3_set_python_psk_client_callback(PyObject* self, PyObject* args)
 /*
  * Called from Python to set python_psk_server_callback;
  */
-PyObject* sslpsk3_set_python_psk_server_callback(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_set_python_psk_server_callback(PyObject* self, PyObject* args)
 {
     PyObject* cb;
     if (!PyArg_ParseTuple(args, "O", &cb)) {
@@ -217,7 +217,7 @@ static unsigned int sslpsk3_psk_server_callback(SSL* ssl,
 /*
  * Called from Python to set the client psk callback.
  */
-PyObject* sslpsk3_set_psk_client_callback(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_set_psk_client_callback(PyObject* self, PyObject* args)
 {
     PyObject* socket;
     SSL* ssl;
@@ -236,7 +236,7 @@ PyObject* sslpsk3_set_psk_client_callback(PyObject* self, PyObject* args)
 /*
  * Called from Python to set the server psk callback.
  */
-PyObject* sslpsk3_set_psk_server_callback(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_set_psk_server_callback(PyObject* self, PyObject* args)
 {
     PyObject* socket;
     SSL* ssl;
@@ -255,7 +255,7 @@ PyObject* sslpsk3_set_psk_server_callback(PyObject* self, PyObject* args)
 /*
  * Called from Python to set the server identity hint.
  */
-PyObject* sslpsk3_use_psk_identity_hint(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_use_psk_identity_hint(PyObject* self, PyObject* args)
 {
     PyObject* socket;
     const char *hint;
@@ -275,7 +275,7 @@ PyObject* sslpsk3_use_psk_identity_hint(PyObject* self, PyObject* args)
 /*
  * Called from Python to place the socket into server mode
  */
-PyObject* sslpsk3_set_accept_state(PyObject* self, PyObject* args)
+static PyObject* sslpsk3_set_accept_state(PyObject* self, PyObject* args)
 {
     PyObject* socket;
     SSL* ssl;
