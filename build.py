@@ -13,8 +13,8 @@ else:
     LIB_NAMES = ["ssl"]
 
 extension = Extension(
-    "sslpsk2._sslpsk2",
-    sources=["sslpsk2/_sslpsk2.c"],
+    "sslpsk3._sslpsk3",
+    sources=["sslpsk3/_sslpsk3.c"],
     libraries=LIB_NAMES,
     include_dirs=["openssl/include/"],
     library_dirs=["openssl/lib/VC/"],
