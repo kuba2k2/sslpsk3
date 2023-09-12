@@ -302,10 +302,13 @@ static PyMethodDef sslpsk3_methods[] =
     {NULL, NULL, 0, NULL}
 };
 
+#define STRINGIFY(x) #x
+#define STRINGIFY_MACRO(x) STRINGIFY(x)
+
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef sslpsk3_moduledef = {
     PyModuleDef_HEAD_INIT,
-    "sslpsk3",
+    "sslpsk3_" STRINGIFY_MACRO(OPENSSL_VER),
     NULL,
     0,
     sslpsk3_methods,
@@ -317,15 +320,15 @@ static struct PyModuleDef sslpsk3_moduledef = {
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit__sslpsk3(void)
+PyMODINIT_FUNC INIT_FUNC_3(void)
 #else
-void init_sslpsk3(void)
+void INIT_FUNC_2(void)
 #endif
 {
 #if PY_MAJOR_VERSION >= 3
     PyObject* m = PyModule_Create(&sslpsk3_moduledef);
 #else
-    PyObject* m = Py_InitModule("_sslpsk3", sslpsk3_methods);
+    PyObject* m = Py_InitModule("_sslpsk3_" STRINGIFY_MACRO(OPENSSL_VER), sslpsk3_methods);
 #endif
 
     if (m == NULL) {

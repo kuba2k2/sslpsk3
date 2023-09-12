@@ -19,7 +19,11 @@ import weakref
 
 import _ssl
 
-from sslpsk3 import _sslpsk3
+if ssl.OPENSSL_VERSION_INFO >= (3, 0):
+    from sslpsk3 import _sslpsk3_openssl3 as _sslpsk3
+else:
+    from sslpsk3 import _sslpsk3_openssl1 as _sslpsk3
+
 
 _callbacks = {}
 
