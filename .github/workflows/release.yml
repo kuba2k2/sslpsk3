@@ -1,0 +1,110 @@
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+jobs:
+  lint-python:
+    name: Run Python lint
+    uses: kuba2k2/kuba2k2/.github/workflows/lint-python.yml@master
+
+  download-openssl:
+    name: Download OpenSSL-Win64
+    needs:
+      - lint-python
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        openssl:
+          - version: "1.1.1.2100"
+            output: "openssl1"
+          - version: "3.1.1"
+            output: "openssl3"
+    steps:
+      - name: Cache OpenSSL
+        id: cache-openssl
+        uses: actions/cache@v3
+        with:
+          path: ${{ matrix.openssl.output }}
+          key: ${{ runner.os }}-openssl-${{ matrix.openssl.version }}
+      - name: Install OpenSSL-Win64
+        if: steps.cache-openssl.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          choco install openssl --version ${{ matrix.openssl.version }} --yes --force --ignore-dependencies
+          mkdir ${{ matrix.openssl.output }}
+          xcopy /S "C:\Program Files\OpenSSL\include" ${{ matrix.openssl.output }}\include\
+          xcopy "C:\Program Files\OpenSSL\lib\VC\*.lib" ${{ matrix.openssl.output }}\lib\VC\
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-win64
+          path: openssl?/
+          if-no-files-found: error
+
+  build-poetry:
+    name: Build Python package
+    needs:
+      - lint-python
+      - download-openssl
+    uses: kuba2k2/kuba2k2/.github/workflows/build-poetry.yml@master
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.9", "3.10", "3.11"]
+        build:
+          - runs-on: windows-latest
+            openssl: openssl-win64
+            format: wheel
+        include:
+          - python: "3.10"
+            build:
+              runs-on: ubuntu-latest
+              openssl: ""
+              format: "sdist"
+    with:
+      runs-on: ${{ matrix.build.runs-on }}
+      input-artifact: ${{ matrix.build.openssl }}
+      input-path: "."
+      python-version: ${{ matrix.python }}
+      args: --format=${{ matrix.build.format }}
+      post-build: |
+        pip install .
+        mkdir workdir
+        cd workdir
+      files: |
+        dist/*.whl
+        dist/*.tar.gz
+      output-artifact: sslpsk3
+
+  publish-pypi:
+    name: Publish PyPI package
+    needs:
+      - build-poetry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build-poetry.outputs.artifact }}
+          path: dist/
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v8
+      - name: Publish PyPI package
+        run: poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }}
+
+  gh-release:
+    name: Publish GitHub release
+    needs:
+      - build-poetry
+    uses: kuba2k2/kuba2k2/.github/workflows/gh-release.yml@master
+    permissions:
+      contents: write
+    with:
+      artifact: ${{ needs.build-poetry.outputs.artifact }}
