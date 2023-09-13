@@ -11,6 +11,30 @@ instead of
 
     ssl.wrap_socket(sock, ...)
 
+## Backstory
+
+There were two published versions on PyPI, both without Python 3.11 support.
+
+Additionally, for whatever reason, the Windows build of `sslpsk2` for Python 3.10 has been linked against OpenSSL 3,
+while Python 3.10 on Windows uses OpenSSL 1.1.1, which causes run-time crashes (Python started using OpenSSL 3 in 3.11.5).
+
+This fork aims to fix the incompatibility between OpenSSL versions.
+
+Availability of binary wheels for Windows:
+
+&nbsp;      | `sslpsk` | `sslpsk2` | `sslpsk3`
+------------|----------|-----------|----------
+Python 2.7  | 1.0.0    | -         | -
+Python 3.3  | 1.0.0    | -         | -
+Python 3.4  | 1.0.0    | -         | -
+Python 3.5  | 1.0.0    | -         | -
+Python 3.6  | 1.0.0    | -         | -
+Python 3.7  | -        | 1.0.1     | -
+Python 3.8  | -        | 1.0.1     | 1.1.0
+Python 3.9  | -        | 1.0.1     | 1.1.0
+Python 3.10 | -        | 1.0.2     | 1.1.0
+Python 3.11 | -        | -         | 1.1.0
+
 ## Installation
 
 ```pip install sslpsk3```
@@ -182,6 +206,10 @@ if __name__ == '__main__':
   + OpenSSL 1.1.1
   + Fix with _sslobj
   + Build from source in Windows with error description, when OpenSSL files are not present
++ 1.1.0 (September 13, 2023)
+  + Migrate to GitHub actions
+  + Reformat code
+  + Support OpenSSL v1 and v3
 
 ## Acknowledgments
 
@@ -190,16 +218,15 @@ Fork of [drbild/sslpsk](https://github.com/drbild/sslpsk).
 The main approach was borrowed from
 [webgravel/common-ssl](https://github.com/webgravel/common-ssl).
 
+Version from [autinerd/sslpsk2](https://github.com/autinerd/sslpsk2) updated to work with OpenSSL v1 and v3.
+
 ## Contributing
 
 Please submit bugs, questions, suggestions, or (ideally) contributions as
 issues and pull requests on GitHub.
 
-### Maintainers
-**Sidney Kuyateh**
-
 ## License
-Copyright 2017 David R. Bild, 2020 Sidney Kuyateh
+Copyright 2017 David R. Bild, 2020 Sidney Kuyateh, 2023 Kuba Szczodrzyński
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not
 use this work except in compliance with the License. You may obtain a copy of
