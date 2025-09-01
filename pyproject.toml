@@ -7,7 +7,7 @@ license = "Apache 2.0"
 readme = "README.md"
 
 [tool.poetry.build]
-script = "build.py"
+script = "sslpsk3_build.py"
 generate-setup-file = true
 
 [tool.poetry.dependencies]
