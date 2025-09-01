@@ -1,129 +1,217 @@
-# Copyright 2017 David R. Bild
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License
+# Copyright (c) Kuba Szczodrzyński 2025-9-1.
+# Original work: Copyright 2017 David R. Bild
+# SSLContext refactor inspired by the PR made by @doronz88
 
-from __future__ import absolute_import
+from ssl import (
+    CERT_NONE,
+    OPENSSL_VERSION_INFO,
+    PROTOCOL_TLS,
+    PROTOCOL_TLS_CLIENT,
+    PROTOCOL_TLS_SERVER,
+    SSLContext,
+    SSLObject,
+    SSLSocket,
+)
+from typing import Callable, Dict, Optional, Tuple, Union
 
-import ssl
-import weakref
+from _ssl import _SSLSocket
 
-import _ssl
-
-if ssl.OPENSSL_VERSION_INFO >= (3, 0):
+if OPENSSL_VERSION_INFO >= (3, 0):
     from sslpsk3 import _sslpsk3_openssl3 as _sslpsk3
 else:
     from sslpsk3 import _sslpsk3_openssl1 as _sslpsk3
 
-
-_callbacks = {}
-
-
-class FinalizerRef(weakref.ref):
-    """subclass weakref.ref so that attributes can be added"""
-
-
-def _register_callback(sock, ssl_id, callback):
-    _callbacks[ssl_id] = callback
-    callback.unregister = FinalizerRef(sock, _unregister_callback)
-    callback.unregister.ssl_id = ssl_id
+Hint = Optional[str]
+Identity = Optional[str]
+Psk = bytes
+ClientCallback = Callable[[Hint], Tuple[Identity, Psk]]
+ServerCallback = Callable[[Identity], Psk]
 
 
-def _unregister_callback(ref):
-    del _callbacks[ref.ssl_id]
-
-
-def _python_psk_client_callback(ssl_id, hint):
-    """Called by _sslpsk3.c to return the (psk, identity) tuple for the socket with
-    the specified ssl socket.
-
-    """
-    if ssl_id not in _callbacks:
-        return (b"", b"")
-    else:
-        res = _callbacks[ssl_id](hint)
-        return res if isinstance(res, tuple) else (res, b"")
-
-
-def _sslobj(sock):
-    """Returns the underlying PySLLSocket object with which the C extension
-    functions interface.
-
-    """
-    if isinstance(sock._sslobj, _ssl._SSLSocket):
+# noinspection PyUnresolvedReferences,PyProtectedMember
+def get_ssl_socket(sock: Union[SSLSocket, SSLObject]) -> _SSLSocket:
+    if isinstance(sock._sslobj, _SSLSocket):
         return sock._sslobj
-    else:
-        return sock._sslobj._sslobj
+    return sock._sslobj._sslobj
 
 
-def _python_psk_server_callback(ssl_id, identity):
-    """Called by _sslpsk3.c to return the psk for the socket with the specified
-    ssl socket.
+class SSLPSKContext(SSLContext):
+    psk_client_callback: Optional[ClientCallback] = None
+    psk_server_callback: Optional[ServerCallback] = None
+    psk_server_hint: Hint = None
 
+    def set_psk_client_callback(
+        self,
+        callback: Optional[ClientCallback],
+    ) -> None:
+        self.psk_client_callback = callback
+
+    def set_psk_server_callback(
+        self,
+        callback: Optional[ServerCallback],
+        identity_hint: Hint = None,
+    ) -> None:
+        self.psk_server_callback = callback
+        self.psk_server_hint = identity_hint
+
+    def setup_psk_callbacks(self, sock: Union[SSLSocket, SSLObject]) -> None:
+        if self.psk_client_callback and not sock.server_side:
+            ssl_id = _sslpsk3.sslpsk3_set_psk_client_callback(get_ssl_socket(sock))
+            psk_contexts[ssl_id] = self
+        if self.psk_server_callback and sock.server_side:
+            hint = self.psk_server_hint or ""
+            ssl_id = _sslpsk3.sslpsk3_set_accept_state(get_ssl_socket(sock))
+            _sslpsk3.sslpsk3_set_psk_server_callback(get_ssl_socket(sock))
+            _sslpsk3.sslpsk3_use_psk_identity_hint(get_ssl_socket(sock), hint)
+            psk_contexts[ssl_id] = self
+
+
+class SSLPSKObject(SSLObject):
+    def do_handshake(self):
+        # noinspection PyTypeChecker
+        context: SSLPSKContext = self.context
+        context.setup_psk_callbacks(self)
+        super().do_handshake()
+
+
+class SSLPSKSocket(SSLSocket):
+    def do_handshake(self, *args, **kwargs):
+        # noinspection PyTypeChecker
+        context: SSLPSKContext = self.context
+        context.setup_psk_callbacks(self)
+        super().do_handshake(*args, **kwargs)
+
+
+SSLPSKContext.sslobject_class = SSLPSKObject
+SSLPSKContext.sslsocket_class = SSLPSKSocket
+psk_contexts: Dict[int, SSLPSKContext] = {}
+
+
+def openssl_psk_client_callback(
+    ssl_id: int,
+    hint: Hint,
+) -> Tuple[Identity, Psk]:
     """
-    if ssl_id not in _callbacks:
+    :param ssl_id: SSL socket ID
+    :param hint: server hint
+    :return: (identity, psk) tuple
+    """
+    if ssl_id not in psk_contexts:
+        return "", b""
+    context = psk_contexts[ssl_id]
+    if not context.psk_client_callback:
+        return "", b""
+    return context.psk_client_callback(hint or None)
+
+
+def openssl_psk_server_callback(
+    ssl_id: int,
+    identity: Identity,
+) -> Psk:
+    """
+    :param ssl_id: SSL socket ID
+    :param identity: client identity
+    :return: psk
+    """
+    if ssl_id not in psk_contexts:
         return b""
-    else:
-        return _callbacks[ssl_id](identity)
+    context = psk_contexts[ssl_id]
+    if not context.psk_server_callback:
+        return b""
+    return context.psk_server_callback(identity or None)
 
 
-_sslpsk3.sslpsk3_set_python_psk_client_callback(_python_psk_client_callback)
-_sslpsk3.sslpsk3_set_python_psk_server_callback(_python_psk_server_callback)
+# give the C code access to Python methods that will retrieve the PSK
+_sslpsk3.sslpsk3_set_python_psk_client_callback(openssl_psk_client_callback)
+_sslpsk3.sslpsk3_set_python_psk_server_callback(openssl_psk_server_callback)
 
 
-def _ssl_set_psk_client_callback(sock, psk_cb):
-    ssl_id = _sslpsk3.sslpsk3_set_psk_client_callback(_sslobj(sock))
-    _register_callback(sock, ssl_id, psk_cb)
-
-
-def _ssl_set_psk_server_callback(sock, psk_cb, hint):
-    ssl_id = _sslpsk3.sslpsk3_set_accept_state(_sslobj(sock))
-    _ = _sslpsk3.sslpsk3_set_psk_server_callback(_sslobj(sock))
-    _ = _sslpsk3.sslpsk3_use_psk_identity_hint(_sslobj(sock), hint if hint else b"")
-    _register_callback(sock, ssl_id, psk_cb)
-
-
-def wrap_socket(*args, **kwargs):
-    """ """
-    do_handshake_on_connect = kwargs.get("do_handshake_on_connect", True)
-    kwargs["do_handshake_on_connect"] = False
-
-    psk = kwargs.setdefault("psk", None)
-    del kwargs["psk"]
-
-    hint = kwargs.setdefault("hint", None)
-    del kwargs["hint"]
-
-    server_side = kwargs.setdefault("server_side", False)
-    if psk:
-        del kwargs["server_side"]  # bypass need for cert
-
-    sock = ssl.wrap_socket(*args, **kwargs)
-
-    if psk:
-        if server_side:
-            cb = psk if callable(psk) else lambda _identity: psk
-            _ssl_set_psk_server_callback(sock, cb, hint)
+def _wrap_socket_client(
+    context: SSLPSKContext,
+    callback: Union[Psk, Tuple[Psk, bytes], Callable[[bytes], Tuple[Psk, bytes]]],
+):
+    def cb(hint: Hint) -> Tuple[Identity, Psk]:
+        value = callback
+        if callable(value):
+            value = value(hint.encode())
+        if isinstance(value, tuple):
+            psk, identity = value
+            return identity.decode(), psk
         else:
-            cb = (
-                psk
-                if callable(psk)
-                else lambda _hint: psk
-                if isinstance(psk, tuple)
-                else (psk, b"")
-            )
-            _ssl_set_psk_client_callback(sock, cb)
+            return "", value
 
-    if do_handshake_on_connect:
-        sock.do_handshake()
+    context.set_psk_client_callback(callback=cb)
 
-    return sock
+
+def _wrap_socket_server(
+    context: SSLPSKContext,
+    callback: Union[Psk, Callable[[bytes], Psk]],
+    identity_hint: bytes,
+):
+    def cb(identity: Identity) -> Psk:
+        if callable(callback):
+            return callback(identity.encode())
+        return callback
+
+    context.set_psk_server_callback(
+        callback=cb,
+        identity_hint=identity_hint and identity_hint.decode(),
+    )
+
+
+def wrap_socket(
+    sock,
+    psk,
+    hint=None,
+    keyfile=None,
+    certfile=None,
+    server_side=False,
+    cert_reqs=CERT_NONE,
+    ssl_version=PROTOCOL_TLS,
+    ca_certs=None,
+    do_handshake_on_connect=True,
+    suppress_ragged_eofs=True,
+    ciphers=None,
+) -> SSLSocket:
+    """
+    :param sock: socket to wrap
+    :param psk: one of:
+            1) PSK (bytes);
+            2) client-side only: tuple of bytes (psk, identity);
+            3) callable that returns 1) or 2), given the server hint or client identity as parameter (bytes)
+    :param hint: server identity hint (bytes)
+    :param keyfile: for SSLContext.load_cert_chain()
+    :param certfile: for SSLContext.load_cert_chain()
+    :param server_side: for SSLContext.wrap_socket()
+    :param cert_reqs: for SSLContext.options
+    :param ssl_version: for SSLContext()
+    :param ca_certs: for SSLContext.load_verify_locations()
+    :param do_handshake_on_connect: for SSLContext.wrap_socket()
+    :param suppress_ragged_eofs: for SSLContext.wrap_socket()
+    :param ciphers: for SSLContext.set_ciphers()
+    :return: wrapped SSLSocket
+    """
+
+    context = SSLPSKContext(protocol=ssl_version)
+    context.options = cert_reqs
+    if keyfile and certfile:
+        context.load_cert_chain(certfile, keyfile)
+    if ca_certs:
+        context.load_verify_locations(ca_certs)
+    if ciphers:
+        context.set_ciphers(ciphers)
+
+    if psk and server_side:
+        _wrap_socket_server(context, psk, hint)
+    elif psk:
+        _wrap_socket_client(context, psk)
+
+    if psk and ssl_version in [PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER]:
+        context.check_hostname = False
+
+    return context.wrap_socket(
+        sock=sock,
+        server_side=server_side,
+        do_handshake_on_connect=do_handshake_on_connect,
+        suppress_ragged_eofs=suppress_ragged_eofs,
+    )

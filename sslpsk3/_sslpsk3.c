@@ -34,8 +34,6 @@ typedef struct {
 	/* etc */
 } PySSLSocket;
 
-#define BYTESFMT "y"
-
 /*
  * Python function that returns the client psk and identity.
  *
@@ -118,14 +116,14 @@ static unsigned int sslpsk3_psk_client_callback(
 	}
 
 	// Call python callback
-	result = PyObject_CallFunction(python_psk_client_callback, "l" BYTESFMT, ssl_id(ssl), hint);
+	result = PyObject_CallFunction(python_psk_client_callback, "ls", ssl_id(ssl), hint);
 	if (result == NULL) {
 		goto release;
 	}
 
 	// Parse result
 
-	if (!PyArg_Parse(result, "(" BYTESFMT "#" BYTESFMT "#)", &psk_, &psk_len_, &identity_, &identity_len_)) {
+	if (!PyArg_Parse(result, "(s#y#)", &identity_, &identity_len_, &psk_, &psk_len_)) {
 		goto decref;
 	}
 
@@ -177,13 +175,13 @@ static unsigned int sslpsk3_psk_server_callback(
 	}
 
 	// Call python callback
-	result = PyObject_CallFunction(python_psk_server_callback, "l" BYTESFMT, ssl_id(ssl), identity);
+	result = PyObject_CallFunction(python_psk_server_callback, "ls", ssl_id(ssl), identity);
 	if (result == NULL) {
 		goto release;
 	}
 
 	// Parse result
-	if (!PyArg_Parse(result, BYTESFMT "#", &psk_, &psk_len_)) {
+	if (!PyArg_Parse(result, "y#", &psk_, &psk_len_)) {
 		goto decref;
 	}
 
@@ -246,7 +244,7 @@ static PyObject *sslpsk3_use_psk_identity_hint(PyObject *self, PyObject *args) {
 	const char *hint;
 	SSL *ssl;
 
-	if (!PyArg_ParseTuple(args, "O" BYTESFMT, &socket, &hint)) {
+	if (!PyArg_ParseTuple(args, "Os", &socket, &hint)) {
 		return NULL;
 	}
 
