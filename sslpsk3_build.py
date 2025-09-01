@@ -20,8 +20,7 @@ extension_openssl1 = Extension(
     library_dirs=["openssl1/lib/VC/"],
     define_macros=[
         ("OPENSSL_VER", "openssl1"),
-        ("INIT_FUNC_2", "init_sslpsk3_openssl1"),
-        ("INIT_FUNC_3", "PyInit__sslpsk3_openssl1"),
+        ("INIT_FUNC", "PyInit__sslpsk3_openssl1"),
     ],
 )
 extension_openssl3 = Extension(
@@ -32,8 +31,7 @@ extension_openssl3 = Extension(
     library_dirs=["openssl3/lib/VC/"],
     define_macros=[
         ("OPENSSL_VER", "openssl3"),
-        ("INIT_FUNC_2", "init_sslpsk3_openssl3"),
-        ("INIT_FUNC_3", "PyInit__sslpsk3_openssl3"),
+        ("INIT_FUNC", "PyInit__sslpsk3_openssl3"),
     ],
 )
 

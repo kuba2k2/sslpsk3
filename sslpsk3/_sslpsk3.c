@@ -19,8 +19,8 @@
 #include <openssl/ssl.h>
 
 /* Copy PySSLObject/PySSLSocket from _ssl.c to expose the SSL*. */
-#if !defined(PY_MAJOR_VERSION) || (PY_VERSION_HEX < 0x02070000)
-#error Only Python 2.7 and later are supported
+#if !defined(PY_MAJOR_VERSION) || (PY_VERSION_HEX < 0x03000000)
+#error Only Python 3.0 and later are supported
 #endif
 
 #define PY_VERSION_BETWEEN(start, end) ((PY_VERSION_HEX >= start) && \
@@ -28,9 +28,6 @@
 
 typedef struct {
     PyObject_HEAD
-#if PY_VERSION_BETWEEN(0x02070000, 0x03000000)
-    void*          PySocketSockObject;
-#endif
     PyObject*      socket;
 #if PY_VERSION_BETWEEN(0x03000000, 0x03020000)
     void*          SSL_CTX;
@@ -39,11 +36,7 @@ typedef struct {
     /* etc */
 } PySSLSocket;
 
-#if PY_VERSION_BETWEEN(0x02070000, 0x03000000)
-#define BYTESFMT "s"
-#else
 #define BYTESFMT "y"
-#endif
 
 /*
  * Python function that returns the client psk and identity.
@@ -305,7 +298,6 @@ static PyMethodDef sslpsk3_methods[] =
 #define STRINGIFY(x) #x
 #define STRINGIFY_MACRO(x) STRINGIFY(x)
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef sslpsk3_moduledef = {
     PyModuleDef_HEAD_INIT,
     "sslpsk3_" STRINGIFY_MACRO(OPENSSL_VER),
@@ -317,29 +309,9 @@ static struct PyModuleDef sslpsk3_moduledef = {
     NULL,
     NULL
 };
-#endif
 
-#if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC INIT_FUNC_3(void)
-#else
-void INIT_FUNC_2(void)
-#endif
+PyMODINIT_FUNC INIT_FUNC(void)
 {
-#if PY_MAJOR_VERSION >= 3
     PyObject* m = PyModule_Create(&sslpsk3_moduledef);
-#else
-    PyObject* m = Py_InitModule("_sslpsk3_" STRINGIFY_MACRO(OPENSSL_VER), sslpsk3_methods);
-#endif
-
-    if (m == NULL) {
-#if PY_MAJOR_VERSION >= 3
-        return NULL;
-#else
-        return ;
-#endif
-    }
-
-#if PY_MAJOR_VERSION >= 3
     return m;
-#endif
 }
