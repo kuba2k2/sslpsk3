@@ -40,7 +40,7 @@ for whl_path in dist_path.glob(f"sslpsk3-*-{version}-*.whl"):
 
         print(f" - packing to {whl_path}")
         make_archive(str(whl_path), "zip", str(temp_path))
-        whl_path.unlink(missing_ok=True)
+        whl_path.unlink()
         whl_path.with_suffix(".whl.zip").rename(whl_path)
 
         print(f" - installing {whl_path}")

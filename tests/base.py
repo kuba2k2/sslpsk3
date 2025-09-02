@@ -1,5 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2025-9-1.
 
+import os
 import random
 import ssl
 import sys
@@ -17,9 +18,11 @@ from threading import Thread
 import pytest
 
 PROTOCOLS = []
-if ssl.HAS_TLSv1:
+
+# Linux builds apparently don't like TLSv1 and TLSv1.1
+if ssl.HAS_TLSv1 and os.name == "nt":
     PROTOCOLS += [PROTOCOL_TLSv1]
-if ssl.HAS_TLSv1_1:
+if ssl.HAS_TLSv1_1 and os.name == "nt":
     PROTOCOLS += [PROTOCOL_TLSv1_1]
 if ssl.HAS_TLSv1_2:
     PROTOCOLS += [PROTOCOL_TLSv1_2]

@@ -80,7 +80,7 @@ jobs:
         python -m pip install pytest
         ${{ matrix.build.install }}
         cd tests
-        python -m pytest
+        python -m pytest -s
       files: |
         dist/*.whl
         dist/*.tar.gz
