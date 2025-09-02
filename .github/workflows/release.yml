@@ -119,4 +119,4 @@ jobs:
     permissions:
       contents: write
     with:
-      artifact: ${{ needs.build-poetry.outputs.artifact }}
+      artifact: sslpsk3-*
