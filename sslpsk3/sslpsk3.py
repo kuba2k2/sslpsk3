@@ -2,6 +2,7 @@
 # Original work: Copyright 2017 David R. Bild
 # SSLContext refactor inspired by the PR made by @doronz88
 
+import sys
 from ssl import (
     CERT_NONE,
     OPENSSL_VERSION_INFO,
@@ -39,11 +40,15 @@ class SSLPSKContext(SSLContext):
     psk_client_callback: Optional[ClientCallback] = None
     psk_server_callback: Optional[ServerCallback] = None
     psk_server_hint: Hint = None
+    psk_force_openssl: bool = False
 
     def set_psk_client_callback(
         self,
         callback: Optional[ClientCallback],
     ) -> None:
+        if sys.version_info >= (3, 13, 0) and not self.psk_force_openssl:
+            super().set_psk_client_callback(callback)
+            return
         self.psk_client_callback = callback
 
     def set_psk_server_callback(
@@ -51,10 +56,14 @@ class SSLPSKContext(SSLContext):
         callback: Optional[ServerCallback],
         identity_hint: Hint = None,
     ) -> None:
+        if sys.version_info >= (3, 13, 0) and not self.psk_force_openssl:
+            super().set_psk_server_callback(callback, identity_hint)
+            return
         self.psk_server_callback = callback
         self.psk_server_hint = identity_hint
 
     def setup_psk_callbacks(self, sock: Union[SSLSocket, SSLObject]) -> None:
+        # this is a no-op on Python 3.13 and newer, since callbacks aren't set
         if self.psk_client_callback and not sock.server_side:
             ssl_id = _sslpsk3.sslpsk3_set_psk_client_callback(get_ssl_socket(sock))
             psk_contexts[ssl_id] = self
@@ -133,7 +142,7 @@ def _wrap_socket_client(
     def cb(hint: Hint) -> Tuple[Identity, Psk]:
         value = callback
         if callable(value):
-            value = value(hint.encode())
+            value = value(hint and hint.encode() or None)
         if isinstance(value, tuple):
             psk, identity = value
             return identity.decode(), psk
@@ -150,7 +159,7 @@ def _wrap_socket_server(
 ):
     def cb(identity: Identity) -> Psk:
         if callable(callback):
-            return callback(identity.encode())
+            return callback(identity and identity.encode() or None)
         return callback
 
     context.set_psk_server_callback(
@@ -177,8 +186,8 @@ def wrap_socket(
     :param sock: socket to wrap
     :param psk: one of:
             1) PSK (bytes);
-            2) client-side only: tuple of bytes (psk, identity);
-            3) callable that returns 1) or 2), given the server hint or client identity as parameter (bytes)
+            2) client-side only: tuple of bytes (psk, identity|None);
+            3) callable that returns 1) or 2), given the server_hint|None or client_identity|None as parameter (bytes)
     :param hint: server identity hint (bytes)
     :param keyfile: for SSLContext.load_cert_chain()
     :param certfile: for SSLContext.load_cert_chain()
