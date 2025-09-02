@@ -2,215 +2,108 @@
 
 [![PyPI version](https://badge.fury.io/py/sslpsk3.svg)](https://badge.fury.io/py/sslpsk3)
 
-This module adds TLS-PSK support to the Python 2.7 and 3.x `ssl`
-package. Simply use
-
-    sslpsk3.wrap_socket(sock, psk=b'...', ...)
-
-instead of
-
-    ssl.wrap_socket(sock, ...)
-
-## Backstory
-
-There were two published versions on PyPI, both without Python 3.11 support.
-
-Additionally, for whatever reason, the Windows build of `sslpsk2` for Python 3.10 has been linked against OpenSSL 3,
-while Python 3.10 on Windows uses OpenSSL 1.1.1, which causes run-time crashes (Python started using OpenSSL 3 in 3.11.5).
-
-This fork aims to fix the incompatibility between OpenSSL versions.
-
-Availability of binary wheels for Windows:
-
-&nbsp;      | `sslpsk` | `sslpsk2` | `sslpsk3`
-------------|----------|-----------|----------
-Python 2.7  | 1.0.0    | -         | -
-Python 3.3  | 1.0.0    | -         | -
-Python 3.4  | 1.0.0    | -         | -
-Python 3.5  | 1.0.0    | -         | -
-Python 3.6  | 1.0.0    | -         | -
-Python 3.7  | -        | 1.0.1     | -
-Python 3.8  | -        | 1.0.1     | 1.1.0+
-Python 3.9  | -        | 1.0.1     | 1.1.0+
-Python 3.10 | -        | 1.0.2     | 1.1.0+
-Python 3.11 | -        | -         | 1.1.0+
-Python 3.12 | -        | -         | 1.1.1+
+This module adds TLS-PSK support to the `ssl` package in Python 3.7+.
 
 ## Installation
 
 ```pip install sslpsk3```
 
 `pip` builds from source for Linux and Mac OSX, so a C compiler, the Python
-development headers, and the openSSL development headers are required.  For
+development headers, and the OpenSSL development headers are required. For
 Microsoft Windows, pre-built binaries are available so there are no such
 prerequisites.
 
 ## Usage
 
-`sslpsk3.wrap_socket(...)` is a drop-in replacement for `ssl.wrap_socket(...)` that
-supports two additional arguments, `psk` and `hint`.
+The old method of using `ssl.wrap_socket(...)` is deprecated and not available in Python 3.12+, so the recommended way
+is `SSLContext`.
 
-`psk` sets the preshared key and, optionally, the identity for a client
-connection. `hint` sets the identity hint for a server connection and is
-optional.
+This library introduces a drop-in replacement `SSLPSKContext` class which supports TLS-PSK.
 
-For client connections, `psk` can be one of four things:
+On Python 3.13 and newer, it uses the native implementation; on older versions, a custom implementation based on OpenSSL
+is used.
 
-1. Just the preshared key.
+Server code example:
 
-```python
-sslpsk3.wrap_socket(sock, psk=b'mypsk')
-```
-
-2. A tuple of the preshared key and client identity.
-
-```python
-sslpsk3.wrap_socket(sock, psk=(b'mypsk', b'myidentity'))
-```
-
-3. A function mapping the server identity hint to the preshared key.
-
-```python
-PSK_FOR = {b'server1' : b'abcdef',
-           b'server2' : b'123456'}
-
-sslpsk3.wrap_socket(sock, psk=lambda hint: PSK_FOR[hint])
-```
-
-4. A function mapping the server identity hint to a tuple of the preshared key
-and client identity.
-
-```python
-PSK_FOR = {b'server1' : b'abcdef',
-           b'server2' : b'123456'}
-
-ID_FOR  = {b'server1' : b'clientA',
-           b'server2' : b'clientB'}
-
-sslpsk3.wrap_socket(sock, psk=lambda hint: (PSK_FOR[hint], ID_FOR[hint]))
-```
-
-For server connections, `psk` can be one of two things:
-
-1. Just the preshared key.
-
-```python
-sslpsk3.wrap_socket(sock, server_side=True, psk=b'mypsk')
-```
-
-2. A function mapping the client identity to the preshared key.
-
-```python
-PSK_FOR = {b'clientA' : b'abcdef',
-           b'clientB' : b'123456'}
-
-sslpsk3.wrap_socket(sock, server_side=True, psk=lambda identity: PSK_FOR[identity])
-```
-
-Additionally for server connections, the optional server identity hint is
-specified using the  `hint` argument.
-
-```python
-sslpsk3.wrap_socket(sock, server_side=True, hint=b'myidentity', psk=b'mypsk')
-```
-
-If `hint` is not specified, `None`, or the empty string, the identity hint
-will not be sent to the client.
-
-### Example Server
-
-```python
-from __future__ import print_function
-import socket
+```py
 import ssl
-import sslpsk3
+from sslpsk3 import SSLPSKContext
 
-PSKS = {'client1' : 'abcdef',
-        'client2' : '123456'}
-
-def server(host, port):
-    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp_sock.bind((host, port))
-    tcp_sock.listen(1)
-
-    sock, _ = tcp_sock.accept()
-    ssl_sock = sslpsk3.wrap_socket(sock,
-                                  server_side = True,
-                                  ssl_version=ssl.PROTOCOL_TLSv1,
-                                  ciphers='ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH',
-                                  psk=lambda identity: PSKS[identity],
-                                  hint=b'server1')
-
-    msg = ssl_sock.recv(4).decode()
-    print('Server received: %s'%(msg))
-    msg = "pong"
-    ssl_sock.sendall(msg.encode())
-
-    ssl_sock.shutdown(socket.SHUT_RDWR)
-    ssl_sock.close()
-
-def main():
-    host = '127.0.0.1'
-    port = 6000
-    server(host, port)
-
-if __name__ == '__main__':
-    main()
+context = SSLPSKContext(ssl.PROTOCOL_TLS_SERVER)
+context.maximum_version = ssl.TLSVersion.TLSv1_2
+context.set_ciphers("PSK")
+context.set_psk_server_callback(lambda identity: b"abcdef", identity_hint="server_hint")
+sock = context.wrap_socket(...)
 ```
 
-### Example Client
+Client code example:
 
-```python
-from __future__ import print_function
-import socket
+```py
 import ssl
-import sslpsk3
+from sslpsk3 import SSLPSKContext
 
-PSKS = {b'server1' : b'abcdef',
-        b'server2' : b'uvwxyz'}
-
-def client(host, port, psk):
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.connect((host, port))
-
-    ssl_sock = sslpsk3.wrap_socket(tcp_socket,
-                                  ssl_version=ssl.PROTOCOL_TLSv1,
-                                  ciphers='ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH',
-                                  psk=lambda hint: (PSKS[hint], b'client1'))
-
-    msg = "ping"
-    ssl_sock.sendall(msg.encode())
-    msg = ssl_sock.recv(4).decode()
-    print('Client received: %s'%(msg))
-
-    ssl_sock.shutdown(socket.SHUT_RDWR)
-    ssl_sock.close()
-
-def main():
-    host = '127.0.0.1'
-    port = 6000
-    client(host, port, PSKS)
-
-if __name__ == '__main__':
-    main()
+context = SSLPSKContext(ssl.PROTOCOL_TLS_CLIENT)
+context.check_hostname = False
+context.verify_mode = ssl.CERT_NONE
+context.maximum_version = ssl.TLSVersion.TLSv1_2
+context.set_ciphers("PSK")
+context.set_psk_client_callback(lambda hint: ("client_identity", b"abcdef"))
+sock = context.wrap_socket(...)
 ```
+
+For more information refer
+to [the Python documentation](https://docs.python.org/3.13/library/ssl.html#ssl.SSLContext.set_psk_client_callback) as
+well as [the `test_context_simple.py` test file](tests/test_context_simple.py).
+
+That being said, this library also still contains a backported version of `wrap_context()`, which works the same way as
+in previous versions of `sslpsk`/`sslpsk2`/`sslpsk3`. If possible, please migrate to `SSLPSKContext` anyway.
+
+## Backstory
+
+There were two published versions on PyPI, both without Python 3.11 support.
+
+Additionally, for whatever reason, the Windows build of `sslpsk2` for Python 3.10 has been linked against OpenSSL 3,
+while Python 3.10 on Windows uses OpenSSL 1.1.1, which causes run-time crashes (Python started using OpenSSL 3 in
+3.11.5).
+
+This fork aims to fix the incompatibility between Python and OpenSSL versions.
+
+Availability of binary wheels for Windows:
+
+|             | `sslpsk` | `sslpsk2` | `sslpsk3` |
+|-------------|----------|-----------|-----------|
+| Python 2.7  | 1.0.0    | -         | -         |
+| Python 3.3  | 1.0.0    | -         | -         |
+| Python 3.4  | 1.0.0    | -         | -         |
+| Python 3.5  | 1.0.0    | -         | -         |
+| Python 3.6  | 1.0.0    | -         | -         |
+| Python 3.7  | -        | 1.0.1     | 2.0.0+    |
+| Python 3.8  | -        | 1.0.1     | 1.1.0+    |
+| Python 3.9  | -        | 1.0.1     | 1.1.0+    |
+| Python 3.10 | -        | 1.0.2     | 1.1.0+    |
+| Python 3.11 | -        | -         | 1.1.0+    |
+| Python 3.12 | -        | -         | 2.0.0+    |
+| Python 3.13 | -        | -         | 2.0.0+    |
 
 ## Changelog
 
 + 0.1.0 (July 31, 2017)
-  + initial release
+    + initial release
 + 1.0.0 (August 2, 2017)
-  + include tests in pip distribution
-  + add support for Windows
+    + include tests in pip distribution
+    + add support for Windows
 + 1.0.1 (August 11, 2020)
-  + OpenSSL 1.1.1
-  + Fix with _sslobj
-  + Build from source in Windows with error description, when OpenSSL files are not present
+    + OpenSSL 1.1.1
+    + Fix with _sslobj
+    + Build from source in Windows with error description, when OpenSSL files are not present
 + 1.1.0 (September 13, 2023)
-  + Migrate to GitHub actions
-  + Reformat code
-  + Support OpenSSL v1 and v3
+    + Migrate to GitHub actions
+    + Reformat code
+    + Support OpenSSL v1 and v3
++ 2.0.0 (September 2, 2025)
+    + Rewrite library based on SSLContext
+    + Support Python 3.13 and later
+    + Add a new test suite
 
 ## Acknowledgments
 
@@ -221,13 +114,16 @@ The main approach was borrowed from
 
 Version from [autinerd/sslpsk2](https://github.com/autinerd/sslpsk2) updated to work with OpenSSL v1 and v3.
 
+Updates for `SSLContext` inspired by a [PR created by @doronz88](https://github.com/drbild/sslpsk/pull/28).
+
 ## Contributing
 
 Please submit bugs, questions, suggestions, or (ideally) contributions as
 issues and pull requests on GitHub.
 
 ## License
-Copyright 2017 David R. Bild, 2020 Sidney Kuyateh, 2023 Kuba Szczodrzyński
+
+Copyright 2017 David R. Bild, 2020 Sidney Kuyateh, 2025 Kuba Szczodrzyński
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not
 use this work except in compliance with the License. You may obtain a copy of

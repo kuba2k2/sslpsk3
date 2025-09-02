@@ -3,27 +3,23 @@
 from socket import socket
 from ssl import (
     CERT_NONE,
+    PROTOCOL_TLS_CLIENT,
+    PROTOCOL_TLS_SERVER,
     SSLSocket,
+    TLSVersion,
 )
 
-import pytest
-from base import PROTOCOLS_v1_2, TestBase
+from base import TestBase
 
 from sslpsk3 import SSLPSKContext
 
 
-@pytest.mark.parametrize("protocol", PROTOCOLS_v1_2)
 class TestContextSimple(TestBase):
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, protocol):
-        self.protocol = protocol
-
     def wrap_server(self, sock: socket) -> SSLSocket:
-        context = SSLPSKContext(protocol=self.protocol)
-        context.options = CERT_NONE
+        context = SSLPSKContext(protocol=PROTOCOL_TLS_SERVER)
+        context.maximum_version = TLSVersion.TLSv1_2
         context.set_ciphers(self.ciphers)
-        context.check_hostname = False
 
         context.set_psk_server_callback(
             callback=lambda identity: self.psk,
@@ -36,10 +32,11 @@ class TestContextSimple(TestBase):
         )
 
     def wrap_client(self, sock: socket) -> SSLSocket:
-        context = SSLPSKContext(protocol=self.protocol)
-        context.options = CERT_NONE
-        context.set_ciphers(self.ciphers)
+        context = SSLPSKContext(protocol=PROTOCOL_TLS_CLIENT)
         context.check_hostname = False
+        context.verify_mode = CERT_NONE
+        context.maximum_version = TLSVersion.TLSv1_2
+        context.set_ciphers(self.ciphers)
 
         context.set_psk_client_callback(
             callback=lambda hint: (self.identity, self.psk),
