@@ -36,9 +36,9 @@ jobs:
           xcopy /S "C:\Program Files\OpenSSL\include" ${{ matrix.openssl.output }}\include\
           xcopy "C:\Program Files\OpenSSL\lib\VC\*.lib" ${{ matrix.openssl.output }}\lib\VC\
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: openssl-win64
+          name: openssl-win64-${{ matrix.openssl.output }}
           path: openssl?/
           if-no-files-found: error
 
@@ -51,11 +51,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         build:
           - runs-on: windows-latest
-            openssl: openssl-win64
-            format: wheel
+            openssl: "openssl-win64-*"
+            format: "wheel"
         include:
           - python: "3.10"
             build:
@@ -70,15 +70,15 @@ jobs:
       args: --format=${{ matrix.build.format }}
       post-build: |
         pip install .
-        mkdir workdir
-        cd workdir
+        pytest
       files: |
         dist/*.whl
         dist/*.tar.gz
-      output-artifact: sslpsk3
+      output-artifact: sslpsk3-${{ matrix.python }}-${{ matrix.build.format }}
 
   publish-pypi:
     name: Publish PyPI package
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     needs:
       - build-poetry
     runs-on: ubuntu-latest
@@ -86,10 +86,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Download artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-poetry.outputs.artifact }}
+          pattern: sslpsk3-*
           path: dist/
+          merge-multiple: true
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -101,6 +102,7 @@ jobs:
 
   gh-release:
     name: Publish GitHub release
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     needs:
       - build-poetry
     uses: kuba2k2/kuba2k2/.github/workflows/gh-release.yml@master
