@@ -70,7 +70,8 @@ jobs:
       args: --format=${{ matrix.build.format }}
       post-build: |
         pip install .
-        pytest
+        pip install pytest
+        python -m pytest
       files: |
         dist/*.whl
         dist/*.tar.gz
