@@ -4,12 +4,12 @@ from socket import socket
 from ssl import SSLSocket
 
 import pytest
-from base import PROTOCOLS_v1_2, TestBase
+from base import PROTOCOLS, TestBase
 
 from sslpsk3 import wrap_socket
 
 
-@pytest.mark.parametrize("protocol", PROTOCOLS_v1_2)
+@pytest.mark.parametrize("protocol", PROTOCOLS)
 class TestWrapSimple(TestBase):
 
     @pytest.fixture(scope="function", autouse=True)

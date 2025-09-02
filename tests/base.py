@@ -1,6 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2025-9-1.
 
 import random
+import ssl
 import sys
 from socket import SHUT_RDWR, SO_REUSEADDR, SOL_SOCKET, error, socket
 from ssl import (
@@ -15,14 +16,25 @@ from threading import Thread
 
 import pytest
 
-PROTOCOLS_v1_2 = [PROTOCOL_TLSv1, PROTOCOL_TLSv1_1, PROTOCOL_TLSv1_2]
+PROTOCOLS = []
+if ssl.HAS_TLSv1:
+    PROTOCOLS += [PROTOCOL_TLSv1]
+if ssl.HAS_TLSv1_1:
+    PROTOCOLS += [PROTOCOL_TLSv1_1]
+if ssl.HAS_TLSv1_2:
+    PROTOCOLS += [PROTOCOL_TLSv1_2]
 
 if sys.version_info >= (3, 13, 0):
     # Use TLSv1.3 starting with Python 3.13
     # (earlier versions give ATTEMPT_TO_REUSE_SESSION_IN_DIFFERENT_CONTEXT)
-    PROTOCOLS = PROTOCOLS_v1_2 + [PROTOCOL_TLS, None]
+    PROTOCOLS_AUTO = PROTOCOLS + [PROTOCOL_TLS, None]
 else:
-    PROTOCOLS = PROTOCOLS_v1_2
+    PROTOCOLS_AUTO = PROTOCOLS
+
+print(f"\nHas TLSv1: {ssl.HAS_TLSv1}")
+print(f"Has TLSv1.1: {ssl.HAS_TLSv1_1}")
+print(f"Has TLSv1.2: {ssl.HAS_TLSv1_2}")
+print(f"Has TLSv1.3: {ssl.HAS_TLSv1_3}")
 
 
 def randbytes(length: int) -> bytes:

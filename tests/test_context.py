@@ -13,7 +13,7 @@ from ssl import (
 )
 
 import pytest
-from base import PROTOCOLS, TestBase
+from base import PROTOCOLS_AUTO, TestBase
 
 from sslpsk3 import SSLPSKContext
 
@@ -26,7 +26,7 @@ else:
     SSL_CONTEXT = [SSLPSKContext]
 
 
-@pytest.mark.parametrize("protocol", PROTOCOLS)
+@pytest.mark.parametrize("protocol", PROTOCOLS_AUTO)
 @pytest.mark.parametrize("force_openssl", FORCE_OPENSSL)
 @pytest.mark.parametrize("ssl_context", SSL_CONTEXT)
 @pytest.mark.parametrize("with_identity", [False, True])

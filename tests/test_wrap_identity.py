@@ -8,12 +8,12 @@ from ssl import (
 )
 
 import pytest
-from base import PROTOCOLS, TestBase
+from base import PROTOCOLS_AUTO, TestBase
 
 from sslpsk3 import wrap_socket
 
 
-@pytest.mark.parametrize("protocol", PROTOCOLS)
+@pytest.mark.parametrize("protocol", PROTOCOLS_AUTO)
 class TestWrapIdentity(TestBase):
 
     @pytest.fixture(scope="function", autouse=True)

@@ -57,7 +57,12 @@ jobs:
             openssl: "openssl-win64-*"
             format: "wheel"
         include:
-          - python: "3.10"
+          - python: "3.12"
+            build:
+              runs-on: ubuntu-latest
+              openssl: ""
+              format: "sdist"
+          - python: "3.13"
             build:
               runs-on: ubuntu-latest
               openssl: ""
