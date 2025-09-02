@@ -56,17 +56,20 @@ jobs:
           - runs-on: windows-latest
             openssl: "openssl-win64-*"
             format: "wheel"
+            install: "python sslpsk3_fixup.py"
         include:
           - python: "3.12"
             build:
               runs-on: ubuntu-latest
               openssl: ""
               format: "sdist"
+              install: "python -m pip install ."
           - python: "3.13"
             build:
               runs-on: ubuntu-latest
               openssl: ""
               format: "sdist"
+              install: "python -m pip install ."
     with:
       runs-on: ${{ matrix.build.runs-on }}
       input-artifact: ${{ matrix.build.openssl }}
@@ -74,8 +77,8 @@ jobs:
       python-version: ${{ matrix.python }}
       args: --format=${{ matrix.build.format }}
       post-build: |
-        pip install .
-        pip install pytest
+        python -m pip install pytest
+        ${{ matrix.build.install }}
         cd tests
         python -m pytest
       files: |
