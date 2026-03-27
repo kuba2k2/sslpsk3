@@ -27,6 +27,7 @@ if ssl.HAS_TLSv1_1 and os.name == "nt":
 if ssl.HAS_TLSv1_2:
     PROTOCOLS += [PROTOCOL_TLSv1_2]
 
+# Protocol 'None' means use PROTOCOL_TLS_SERVER/_CLIENT, as appropriate
 if sys.version_info >= (3, 13, 0):
     # Use TLSv1.3 starting with Python 3.13
     # (earlier versions give ATTEMPT_TO_REUSE_SESSION_IN_DIFFERENT_CONTEXT)
@@ -34,7 +35,8 @@ if sys.version_info >= (3, 13, 0):
 else:
     PROTOCOLS_AUTO = PROTOCOLS
 
-print(f"\nHas TLSv1: {ssl.HAS_TLSv1}")
+print(f"\nPython version: {sys.version}")
+print(f"Has TLSv1: {ssl.HAS_TLSv1}")
 print(f"Has TLSv1.1: {ssl.HAS_TLSv1_1}")
 print(f"Has TLSv1.2: {ssl.HAS_TLSv1_2}")
 print(f"Has TLSv1.3: {ssl.HAS_TLSv1_3}")
