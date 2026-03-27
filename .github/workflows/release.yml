@@ -9,37 +9,43 @@ jobs:
     uses: kuba2k2/kuba2k2/.github/workflows/lint-python.yml@master
 
   download-openssl:
-    name: Download OpenSSL-Win64
+    name: Download OpenSSL-Win32/64
     needs:
       - lint-python
     runs-on: windows-latest
     strategy:
       matrix:
         openssl:
-          - version: "1.1.1.2100"
+          - url: "https://www.firedaemon.com/download-firedaemon-openssl-1.1.1-zip"
+            path: "openssl-1.1\\"
             output: "openssl1"
-          - version: "3.1.1"
+          - url: "https://www.firedaemon.com/download-firedaemon-openssl-3-6-zip"
+            path: ""
             output: "openssl3"
     steps:
       - name: Cache OpenSSL
         id: cache-openssl
         uses: actions/cache@v3
         with:
-          path: ${{ matrix.openssl.output }}
-          key: ${{ runner.os }}-openssl-${{ matrix.openssl.version }}
-      - name: Install OpenSSL-Win64
+          path: ${{ matrix.openssl.output }}-*
+          key: ${{ runner.os }}-openssl-${{ matrix.openssl.url }}
+      - name: Unpacking OpenSSL
         if: steps.cache-openssl.outputs.cache-hit != 'true'
         shell: cmd
         run: |
-          choco install openssl --version ${{ matrix.openssl.version }} --yes --force --ignore-dependencies
           mkdir ${{ matrix.openssl.output }}
-          xcopy /S "C:\Program Files\OpenSSL\include" ${{ matrix.openssl.output }}\include\
-          xcopy "C:\Program Files\OpenSSL\lib\VC\*.lib" ${{ matrix.openssl.output }}\lib\VC\
+          cd ${{ matrix.openssl.output }}
+          certutil.exe -urlcache -split -f "${{ matrix.openssl.url }}" openssl.zip
+          7z x openssl.zip
+          xcopy /S "${{ matrix.openssl.path }}x86\include" ..\${{ matrix.openssl.output }}-win32\include\
+          xcopy /S "${{ matrix.openssl.path }}x86\lib" ..\${{ matrix.openssl.output }}-win32\lib\
+          xcopy /S "${{ matrix.openssl.path }}x64\include" ..\${{ matrix.openssl.output }}-win64\include\
+          xcopy /S "${{ matrix.openssl.path }}x64\lib" ..\${{ matrix.openssl.output }}-win64\lib\
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openssl-win64-${{ matrix.openssl.output }}
-          path: openssl?/
+          name: openssl-win-${{ matrix.openssl.output }}
+          path: openssl?-win*/
           if-no-files-found: error
 
   build-poetry:
@@ -52,39 +58,42 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        architecture: ["x86", "x64"]
         build:
           - runs-on: windows-latest
-            openssl: "openssl-win64-*"
+            openssl: "openssl-*"
             format: "wheel"
-            install: "python sslpsk3_fixup.py"
+            test-fixup: "python sslpsk3_fixup.py"
         include:
           - python: "3.12"
             build:
               runs-on: ubuntu-latest
               openssl: ""
               format: "sdist"
-              install: "python -m pip install ."
+              test-fixup: ""
           - python: "3.13"
             build:
               runs-on: ubuntu-latest
               openssl: ""
               format: "sdist"
-              install: "python -m pip install ."
+              test-fixup: ""
     with:
       runs-on: ${{ matrix.build.runs-on }}
       input-artifact: ${{ matrix.build.openssl }}
       input-path: "."
       python-version: ${{ matrix.python }}
+      architecture: ${{ matrix.architecture }}
       args: --format=${{ matrix.build.format }}
       post-build: |
         python -m pip install pytest
-        ${{ matrix.build.install }}
+        pip install -e .
+        ${{ matrix.build.test-fixup }}
         cd tests
         python -m pytest -s
       files: |
         dist/*.whl
         dist/*.tar.gz
-      output-artifact: sslpsk3-${{ matrix.python }}-${{ matrix.build.format }}
+      output-artifact: sslpsk3-${{ matrix.python }}-${{ matrix.architecture }}-${{ matrix.build.format }}
 
   publish-pypi:
     name: Publish PyPI package
