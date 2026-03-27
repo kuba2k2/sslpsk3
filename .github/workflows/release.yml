@@ -57,26 +57,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         architecture: ["x86", "x64"]
         build:
           - runs-on: windows-latest
             openssl: "openssl-*"
             format: "wheel"
-            test-fixup: "python sslpsk3_fixup.py --install"
+            install: "python sslpsk3_fixup.py --install"
         include:
-          - python: "3.12"
-            build:
-              runs-on: ubuntu-latest
-              openssl: ""
-              format: "sdist"
-              test-fixup: ""
           - python: "3.13"
             build:
               runs-on: ubuntu-latest
               openssl: ""
               format: "sdist"
-              test-fixup: ""
+              install: "python -m pip install ."
+          - python: "3.14"
+            build:
+              runs-on: ubuntu-latest
+              openssl: ""
+              format: "sdist"
+              install: "python -m pip install ."
     with:
       runs-on: ${{ matrix.build.runs-on }}
       input-artifact: ${{ matrix.build.openssl }}
@@ -86,7 +86,7 @@ jobs:
       args: --format=${{ matrix.build.format }}
       post-build: |
         python -m pip install pytest
-        ${{ matrix.build.test-fixup }}
+        ${{ matrix.build.install }}
         cd tests
         python -m pytest -s
       files: |

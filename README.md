@@ -106,6 +106,7 @@ Availability of binary wheels for Windows:
 | Python 3.11 | -        | -         | 1.1.0+    |
 | Python 3.12 | -        | -         | 2.0.0+    |
 | Python 3.13 | -        | -         | 2.0.0+    |
+| Python 3.14 | -        | -         | 2.1.0+    |
 
 ## Changelog
 
@@ -126,6 +127,9 @@ Availability of binary wheels for Windows:
     + Rewrite library based on SSLContext
     + Support Python 3.13 and later
     + Add a new test suite
++ 2.1.0 (March 27, 2026)
+    + Build for 32-bit Windows
+    + Use OpenSSL from FireDaemon
 
 ## Acknowledgments
 
