@@ -58,6 +58,28 @@ well as [the `test_context_simple.py` test file](tests/test_context_simple.py).
 That being said, this library also still contains a backported version of `wrap_context()`, which works the same way as
 in previous versions of `sslpsk`/`sslpsk2`/`sslpsk3`. If possible, please migrate to `SSLPSKContext` anyway.
 
+## Building for Windows
+
+The binary Windows module can be built using [FireDaemon OpenSSL Binary Distributions](https://www.firedaemon.com/download-firedaemon-openssl).
+
+OpenSSL 1.x.x and 3.x.x libraries must be extracted to `openssl1-win32/64` and `openssl3-win32/64` folders respectively.
+The resulting folder structure should look as follows:
+
+```
+openssl#-win##/
+    include/openssl/
+        <headers>
+    lib/
+        libcrypto.lib
+        libssl.lib
+```
+
+1. To build and install the library, use `pip install -e .` (editable mode).
+2. To build a binary wheel distribution, use `poetry build --format=wheel`.
+
+In both cases, the resulting PYD (DLL) must be patched using `python sslpsk3_fixup.py`.
+This makes sure the `libssl3.dll` reference is not erroneously using the `-x64` suffix.
+
 ## Backstory
 
 There were two published versions on PyPI, both without Python 3.11 support.

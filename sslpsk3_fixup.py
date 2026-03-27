@@ -1,7 +1,5 @@
 #  Copyright (c) Kuba Szczodrzyński 2025-9-2.
 
-import sys
-from os import system
 from pathlib import Path
 from shutil import make_archive
 from tempfile import TemporaryDirectory
@@ -19,9 +17,19 @@ FIND_OPENSSL3 = b"libssl-3-x64.dll"
 REPL_OPENSSL3 = b"libssl-3.dll\x00\x00\x00\x00"
 
 dist_path = Path(__file__).with_name("dist").resolve()
-version = f"cp{sys.version_info[0]}{sys.version_info[1]}"
+src_path = Path(__file__).with_name("sslpsk3").resolve()
 
-for whl_path in dist_path.glob(f"sslpsk3-*-{version}-*.whl"):
+for pyd_path in src_path.glob(f"_sslpsk3_*.pyd"):
+    data = pyd_path.read_bytes()
+    if FIND_OPENSSL1 in data or FIND_OPENSSL3 in data:
+        print(f"Patching {pyd_path}")
+        data = data.replace(FIND_OPENSSL1, REPL_OPENSSL1)
+        data = data.replace(FIND_OPENSSL3, REPL_OPENSSL3)
+        pyd_path.write_bytes(data)
+    else:
+        print(f"Already patched {pyd_path}")
+
+for whl_path in dist_path.glob(f"sslpsk3-*.whl"):
     with TemporaryDirectory() as temp:
         temp_path = Path(temp).resolve()
         print(f"Processing {whl_path}:")
@@ -42,6 +50,3 @@ for whl_path in dist_path.glob(f"sslpsk3-*-{version}-*.whl"):
         make_archive(str(whl_path), "zip", str(temp_path))
         whl_path.unlink()
         whl_path.with_suffix(".whl.zip").rename(whl_path)
-
-        print(f" - installing {whl_path}")
-        system(f"python -m pip install --force-reinstall {whl_path}")
