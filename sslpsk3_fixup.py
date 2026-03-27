@@ -1,5 +1,7 @@
 #  Copyright (c) Kuba Szczodrzyński 2025-9-2.
 
+import sys
+from os import system
 from pathlib import Path
 from shutil import make_archive
 from tempfile import TemporaryDirectory
@@ -18,6 +20,7 @@ REPL_OPENSSL3 = b"libssl-3.dll\x00\x00\x00\x00"
 
 dist_path = Path(__file__).with_name("dist").resolve()
 src_path = Path(__file__).with_name("sslpsk3").resolve()
+version = f"cp{sys.version_info[0]}{sys.version_info[1]}"
 
 for pyd_path in src_path.glob(f"_sslpsk3_*.pyd"):
     data = pyd_path.read_bytes()
@@ -50,3 +53,7 @@ for whl_path in dist_path.glob(f"sslpsk3-*.whl"):
         make_archive(str(whl_path), "zip", str(temp_path))
         whl_path.unlink()
         whl_path.with_suffix(".whl.zip").rename(whl_path)
+
+        if "--install" in sys.argv and version in whl_path.name:
+            print(f" - installing {whl_path}")
+            system(f"{sys.executable} -m pip install --force-reinstall {whl_path}")

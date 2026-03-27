@@ -63,7 +63,7 @@ jobs:
           - runs-on: windows-latest
             openssl: "openssl-*"
             format: "wheel"
-            test-fixup: "python sslpsk3_fixup.py"
+            test-fixup: "python sslpsk3_fixup.py --install"
         include:
           - python: "3.12"
             build:
@@ -86,7 +86,6 @@ jobs:
       args: --format=${{ matrix.build.format }}
       post-build: |
         python -m pip install pytest
-        pip install -e .
         ${{ matrix.build.test-fixup }}
         cd tests
         python -m pytest -s
